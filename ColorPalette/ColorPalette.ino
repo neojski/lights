@@ -4,27 +4,10 @@
 #define NUM_LEDS    46
 #define BRIGHTNESS  64
 #define LED_TYPE    WS2811
-#define COLOR_ORDER GRB
+#define COLOR_ORDER RGB
 CRGB leds[NUM_LEDS];
 
 #define UPDATES_PER_SECOND 100
-
-// This example shows several ways to set up and use 'palettes' of colors
-// with FastLED.
-//
-// These compact palettes provide an easy way to re-colorize your
-// animation on the fly, quickly, easily, and with low overhead.
-//
-// USING palettes is MUCH simpler in practice than in theory, so first just
-// run this sketch, and watch the pretty lights as you then read through
-// the code.  Although this sketch has eight (or more) different color schemes,
-// the entire sketch compiles down to about 6.5K on AVR.
-//
-// FastLED provides a few pre-configured color palettes, and makes it
-// extremely easy to make up your own color schemes with palettes.
-//
-// Some notes on the more abstract 'theory and practice' of
-// FastLED compact palettes are at the bottom of this file.
 
 
 
@@ -34,27 +17,49 @@ TBlendType    currentBlending;
 extern CRGBPalette16 myRedWhiteBluePalette;
 extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
 
+const int potentiometer = A0;
 
 void setup() {
-    Serial.begin(9600); // open the serial port at 9600 bps:
-    delay( 3000 ); // power-up safety delay
-    FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
-    FastLED.setBrightness(  BRIGHTNESS );
-    
-    currentPalette = RainbowColors_p;
-    currentBlending = LINEARBLEND;
+  Serial.begin(9600); // open the serial port at 9600 bps:
+  delay( 3000 ); // power-up safety delay
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalPixelString );
+  FastLED.setBrightness(  BRIGHTNESS );
+
+  // There's no second GND so let's make D2 low
+  pinMode(4, OUTPUT);
+  digitalWrite(4, LOW);
+
+  currentPalette = RainbowColors_p;
+  currentBlending = LINEARBLEND;
 }
 
+float knob() {
+  float p = analogRead(potentiometer) / 1024.;
+  // clamp at 10 as it seems my lights min:
+
+  static float p_smooth = 0.;
+  p_smooth += (p - p_smooth) / 20.;
+
+  return p_smooth;
+}
 
 void loop()
 {
-    static int time = 0;
-    time = time + 16; /* motion speed */
-    
-    FillLEDsFromPaletteColors(time);
-    
-    FastLED.show();
-    FastLED.delay(1000 / UPDATES_PER_SECOND);
+  static int time = 0;
+  time = time + 16; /* motion speed */
+
+  float p = knob();
+
+  if (p >= 0.8) {
+    // rainbow
+    FillLEDsFromPaletteColors(time, p);
+  } else {
+    // normal white
+    warmWhite(p);
+  }
+
+  FastLED.show();
+  FastLED.delay(1000 / UPDATES_PER_SECOND);
 }
 
 char buffer[1000];
@@ -63,33 +68,54 @@ void printColor (CRGB c) {
   Serial.print(buffer);
 }
 
-void FillLEDsFromPaletteColors(int time)
-{
-    uint8_t brightness = 255;
-
-    for( int i = 0; i < NUM_LEDS; i++) {
-        uint8_t paletteIndex = (time / 256) % 256;
-        uint8_t subPaletteIndex = time % 256; 
-
-        leds[i] =
-          blend(
-            ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending),
-            ColorFromPalette( currentPalette, (paletteIndex+1) % 256, brightness, currentBlending),
-            subPaletteIndex);
-        time += 256;
-
-//        if (i == 0) {
-//          sprintf(buffer, "time: %d, int: %d, main: %d, sub: %d\n", time, i, paletteIndex, subPaletteIndex);
-//          Serial.println(buffer);
-//          printColor(ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending));
-//          printColor(ColorFromPalette( currentPalette, paletteIndex+1, brightness, currentBlending));
-//          printColor(leds[i]);
-//          Serial.print(" ");
-//          printColor(ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending));
-//          Serial.print(" ");
-//          printColor(ColorFromPalette( currentPalette, (paletteIndex+1)%256, brightness, currentBlending));
-//          Serial.println();
-//        }
+void warmWhite(float brightness) {
+  int howManyOn = NUM_LEDS;
+  const float turnOffThreshold = 0.5;
+  if (brightness < turnOffThreshold) {
+    howManyOn = NUM_LEDS * (brightness / turnOffThreshold);
+  }
+  
+  FastLED.setBrightness(brightness * 64);
+  for (int i = 0; i < NUM_LEDS; i++) {
+    if (i < howManyOn) {
+      leds[i] = 0xFFE02D;
+    } else {
+      leds[i] = CRGB::Black;
     }
-    
+  }
+}
+
+void FillLEDsFromPaletteColors(int time, float p)
+{
+  uint8_t brightness = 255 * p;
+  // clamp at 10 as it seems hardware min for these lights
+  if (brightness < 10) {
+    brightness = 10;
+  }
+
+  for ( int i = 0; i < NUM_LEDS; i++) {
+    uint8_t paletteIndex = (time / 256) % 256;
+    uint8_t subPaletteIndex = time % 256;
+
+    leds[i] =
+      blend(
+        ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending),
+        ColorFromPalette( currentPalette, (paletteIndex + 1) % 256, brightness, currentBlending),
+        subPaletteIndex);
+    time += 256;
+
+    //        if (i == 0) {
+    //          sprintf(buffer, "time: %d, int: %d, main: %d, sub: %d\n", time, i, paletteIndex, subPaletteIndex);
+    //          Serial.println(buffer);
+    //          printColor(ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending));
+    //          printColor(ColorFromPalette( currentPalette, paletteIndex+1, brightness, currentBlending));
+    //          printColor(leds[i]);
+    //          Serial.print(" ");
+    //          printColor(ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending));
+    //          Serial.print(" ");
+    //          printColor(ColorFromPalette( currentPalette, (paletteIndex+1)%256, brightness, currentBlending));
+    //          Serial.println();
+    //        }
+  }
+
 }
