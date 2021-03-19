@@ -9,8 +9,6 @@ CRGB leds[NUM_LEDS];
 
 #define UPDATES_PER_SECOND 100
 
-
-
 CRGBPalette16 currentPalette;
 TBlendType    currentBlending;
 
@@ -74,7 +72,7 @@ void warmWhite(float brightness) {
   if (brightness < turnOffThreshold) {
     howManyOn = NUM_LEDS * (brightness / turnOffThreshold);
   }
-  
+
   FastLED.setBrightness(brightness * 64);
   for (int i = 0; i < NUM_LEDS; i++) {
     if (i < howManyOn) {
@@ -103,19 +101,6 @@ void FillLEDsFromPaletteColors(int time, float p)
         ColorFromPalette( currentPalette, (paletteIndex + 1) % 256, brightness, currentBlending),
         subPaletteIndex);
     time += 256;
-
-    //        if (i == 0) {
-    //          sprintf(buffer, "time: %d, int: %d, main: %d, sub: %d\n", time, i, paletteIndex, subPaletteIndex);
-    //          Serial.println(buffer);
-    //          printColor(ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending));
-    //          printColor(ColorFromPalette( currentPalette, paletteIndex+1, brightness, currentBlending));
-    //          printColor(leds[i]);
-    //          Serial.print(" ");
-    //          printColor(ColorFromPalette( currentPalette, paletteIndex, brightness, currentBlending));
-    //          Serial.print(" ");
-    //          printColor(ColorFromPalette( currentPalette, (paletteIndex+1)%256, brightness, currentBlending));
-    //          Serial.println();
-    //        }
   }
 
 }
