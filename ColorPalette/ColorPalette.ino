@@ -66,17 +66,18 @@ void printColor (CRGB c) {
   Serial.print(buffer);
 }
 
-void warmWhite(float brightness) {
+void warmWhite(float knob) {
   int howManyOn = NUM_LEDS;
   const float turnOffThreshold = 0.5;
-  if (brightness < turnOffThreshold) {
-    howManyOn = NUM_LEDS * (brightness / turnOffThreshold);
+  if (knob < turnOffThreshold) {
+    howManyOn = NUM_LEDS * (knob / turnOffThreshold);
   }
 
-  FastLED.setBrightness(brightness * 64);
+  uint8_t brightness = 32 + knob * 32; // below roughly 32 the LEDs colours get some ugly tint 
+  FastLED.setBrightness(brightness);
   for (int i = 0; i < NUM_LEDS; i++) {
     if (i < howManyOn) {
-      leds[i] = 0xFFE02D;
+      leds[i] = 0xFFB02D;
     } else {
       leds[i] = CRGB::Black;
     }
