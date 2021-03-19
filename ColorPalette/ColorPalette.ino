@@ -35,7 +35,6 @@ float knob() {
 
   static float p_smooth = 0.;
   p_smooth += (p - p_smooth) / 20.;
-
   return p_smooth;
 }
 
@@ -57,6 +56,11 @@ void loop() {
   FastLED.delay(1000 / UPDATES_PER_SECOND);
 }
 
+// smooth transition between the current color and the target color
+void setLed(int i, CRGB color) {
+  leds[i] = blend(leds[i], color, 40);
+}
+
 void dimmableWhite(float knob) {
   int howManyOn = NUM_LEDS;
   const float turnOffThreshold = 0.5;
@@ -68,9 +72,9 @@ void dimmableWhite(float knob) {
   FastLED.setBrightness(brightness);
   for (int i = 0; i < NUM_LEDS; i++) {
     if (i < howManyOn) {
-      leds[i] = 0xFFB02D;
+      setLed(i, 0xFFB02D);
     } else {
-      leds[i] = CRGB::Black;
+      setLed(i, CRGB::Black);
     }
   }
 }
@@ -81,11 +85,11 @@ void FillLEDsFromPaletteColors(int time) {
     const uint8_t paletteIndex = (time / 256) % 256;
     const uint8_t subPaletteIndex = time % 256;
 
-    leds[i] =
+    setLed(i,
       blend(
         ColorFromPalette( RainbowColors_p, paletteIndex, brightness, LINEARBLEND),
         ColorFromPalette( RainbowColors_p, (paletteIndex + 1) % 256, brightness, LINEARBLEND),
-        subPaletteIndex);
+        subPaletteIndex));
     time += 256;
   }
 }
