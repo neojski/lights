@@ -135,8 +135,9 @@ struct Hue : public Program {
 
 
 // smooth transition between the current color and the target color
-void setLed(int i, CRGB color) {
-  leds[i] = blend(leds[i], color, 40);
+void setLed(int i, CRGB color) { 
+  leds[i] = blend(leds[i], color, 10);
+//  leds[i] = color;
 }
 
 struct Button {
@@ -185,6 +186,15 @@ void pinDidChange() {
   encoder.checkPins(digitalRead(pinA), digitalRead(pinB));
 }
 
+void selectionIndicator(int selection) {
+  const int row = 7;
+  const int start = NUM_LEDS - row;
+  for (int i = start; i < NUM_LEDS; i++) {
+    setLed(i, CRGB::Black);
+  }
+  setLed(NUM_LEDS - 1 - (selection - 1), CRGB::White);
+}
+
 void loop () {
   static Hue hue;
   static Rainbow rainbow;
@@ -210,6 +220,8 @@ void loop () {
     sprintf(buffer, "button press, selection: %d", selection);
     Serial.println(buffer);
   }
+
+  program->loop();
 
   EC11Event e;
   if (encoder.read(&e)) {
@@ -238,7 +250,12 @@ void loop () {
     }
   }
 
-  program->loop();
+  switch (selection) {
+    case 0: break;
+    case 1:
+    default:
+      selectionIndicator(selection);
+  }
 
   FastLED.show();
 }
