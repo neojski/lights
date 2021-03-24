@@ -80,11 +80,12 @@ struct White : public Program {
 
 struct Rainbow : public Program {
   private:
-    int time;
+    int prevMillis;
+    int time = 0;
     int speed = 20;
 
   public:
-    Rainbow () : time(0) {}
+    Rainbow () {}
 
     virtual void loop () {
       int time0 = time;
@@ -100,7 +101,9 @@ struct Rainbow : public Program {
         time0 += 256;
       }
 
-      time += speed;
+      int currentMillis = millis();
+      time += speed * (currentMillis - prevMillis);
+      prevMillis = currentMillis;
     }
 
     virtual void knob (bool clockwise) {
