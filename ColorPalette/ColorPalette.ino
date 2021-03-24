@@ -66,7 +66,8 @@ struct White : public Program {
     virtual void loop () {
       for (int i = 0; i < NUM_LEDS; i++) {
         if (i < howManyOn) {
-          setLed(i, 0xFFB02D);
+          CHSV color = CHSV(26, 210, 180);
+          setLed(i, color);
         } else {
           setLed(i, CRGB::Black);
         }
@@ -139,8 +140,8 @@ struct Hue : public Program {
 
 // smooth transition between the current color and the target color
 void setLed(int i, CRGB color) {
-  leds[i] = blend(leds[i], color, 10);
-  //  leds[i] = color;
+  //  leds[i] = blend(leds[i], color, 10);
+  leds[i] = color;
 }
 
 struct Button {
