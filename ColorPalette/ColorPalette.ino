@@ -82,7 +82,7 @@ struct Rainbow : public Program {
   private:
     int prevMillis;
     int time = 0;
-    int speed = 20;
+    int speed = 3;
 
   public:
     Rainbow () {}
