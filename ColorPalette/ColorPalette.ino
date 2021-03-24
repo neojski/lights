@@ -9,10 +9,6 @@
 #define UPDATES_PER_SECOND 100
 CRGB leds[NUM_LEDS];
 
-// TODO:
-// 1. Fix button, we need pull-up (or down) resistor on it to make it work.
-// 2. Make the button switch programs, etc.
-
 const int d1 = 5;
 const int d2 = 4;
 const int d3 = 0;
