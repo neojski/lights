@@ -1,5 +1,4 @@
 #include <FastLED.h>
-#include <TimeOut.h>
 #include "EC11.hpp"
 
 #define LED_PIN     2
@@ -198,13 +197,18 @@ void selectionIndicator(int selection) {
 }
 
 bool active = false;
+int deactivateAt;
 void deactivate() {
   active = false;
 }
 void activate() {
-  static TimeOut timeout;
   active = true;
-  timeout.timeOut(5000, deactivate);
+  deactivateAt = millis() + 3000;
+}
+void checkActive() {
+  if (millis() > deactivateAt) {
+    deactivate();
+  }
 }
 
 void loop () {
@@ -214,7 +218,7 @@ void loop () {
   static int brightness = BRIGHTNESS;
   static int currentProgram = 0;
 
-  TimeOut::handler();
+  checkActive();
 
   Program* programs[] = { &hue, &rainbow, &white };
   const int numPrograms = sizeof(programs) / sizeof(*programs);
