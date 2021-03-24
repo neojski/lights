@@ -220,7 +220,7 @@ void loop () {
 
   checkActive();
 
-  Program* programs[] = { &hue, &rainbow, &white };
+  Program* programs[] = { &rainbow, &hue, &white };
   const int numPrograms = sizeof(programs) / sizeof(*programs);
   Program* program = programs[currentProgram];
 
