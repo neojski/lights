@@ -16,20 +16,11 @@ const int d4 = 2;
 const int d5 = 14;
 const int d6 = 12;
 
-// 0. selection of "program"
-// 1. selection of brightness
-// 2. selection of subprogram
-// 3. selection of subprogram2, etc.
-int selection = 0;
-int program = 0;
-
 char buffer[1000];
 void printColor (CRGB c) {
   sprintf(buffer, "(%d, %d, %d)", c[0], c[1], c[2]);
   Serial.print(buffer);
 }
-
-
 
 int clamp (int v, int m, int M) {
   if (v < m) {
@@ -50,7 +41,6 @@ struct Program {
     virtual void loop ();
     virtual void knob (bool clockwise);
 };
-
 
 struct White : public Program {
   private:
@@ -131,8 +121,6 @@ struct Hue : public Program {
       hue += 10 * dir(clockwise);
     }
 };
-
-
 
 // smooth transition between the current color and the target color
 void setLed(int i, CRGB color) {
@@ -217,6 +205,7 @@ void loop () {
   static White white;
   static int brightness = BRIGHTNESS;
   static int currentProgram = 0;
+  static int selection = 0;
 
   checkActive();
 
