@@ -1,4 +1,5 @@
 #include <FastLED.h>
+#include <TimeOut.h>
 #include "EC11.hpp"
 
 #define LED_PIN     2
@@ -135,9 +136,9 @@ struct Hue : public Program {
 
 
 // smooth transition between the current color and the target color
-void setLed(int i, CRGB color) { 
+void setLed(int i, CRGB color) {
   leds[i] = blend(leds[i], color, 10);
-//  leds[i] = color;
+  //  leds[i] = color;
 }
 
 struct Button {
@@ -186,13 +187,24 @@ void pinDidChange() {
   encoder.checkPins(digitalRead(pinA), digitalRead(pinB));
 }
 
+// starts with 0
 void selectionIndicator(int selection) {
   const int row = 7;
   const int start = NUM_LEDS - row;
   for (int i = start; i < NUM_LEDS; i++) {
     setLed(i, CRGB::Black);
   }
-  setLed(NUM_LEDS - 1 - (selection - 1), CRGB::White);
+  setLed(NUM_LEDS - 1 - selection, CRGB::White);
+}
+
+bool active = false;
+void deactivate() {
+  active = false;
+}
+void activate() {
+  static TimeOut timeout;
+  active = true;
+  timeout.timeOut(5000, deactivate);
 }
 
 void loop () {
@@ -200,8 +212,9 @@ void loop () {
   static Rainbow rainbow;
   static White white;
   static int brightness = BRIGHTNESS;
-
   static int currentProgram = 0;
+
+  TimeOut::handler();
 
   Program* programs[] = { &hue, &rainbow, &white };
   const int numPrograms = sizeof(programs) / sizeof(*programs);
@@ -215,6 +228,7 @@ void loop () {
 
   static Button button(d3);
   if (button.click()) {
+    activate();
     selection = (selection + 1) % 3;
 
     sprintf(buffer, "button press, selection: %d", selection);
@@ -225,6 +239,7 @@ void loop () {
 
   EC11Event e;
   if (encoder.read(&e)) {
+    activate();
     bool clockwise = e.type == EC11Event::StepCW;
     switch (selection) {
       case 0: // program
@@ -250,11 +265,8 @@ void loop () {
     }
   }
 
-  switch (selection) {
-    case 0: break;
-    case 1:
-    default:
-      selectionIndicator(selection);
+  if (active) {
+    selectionIndicator(selection);
   }
 
   FastLED.show();
