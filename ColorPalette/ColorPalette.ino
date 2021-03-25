@@ -135,7 +135,7 @@ struct Button {
 
   public:
     // This requires pins with a pull-up resistor
-    Button (int pin) : state(0), pin(pin) {
+    Button (int pin) : state(1), pin(pin) {
       pinMode(pin, INPUT);
     }
 
@@ -184,14 +184,16 @@ void selectionIndicator(int selection) {
   setLed(NUM_LEDS - 1 - selection, CRGB::White);
 }
 
+int selection = 0;
 bool active = false;
 int deactivateAt;
 void deactivate() {
+  selection = 0;
   active = false;
 }
 void activate() {
   active = true;
-  deactivateAt = millis() + 3000;
+  deactivateAt = millis() + 5000;
 }
 void checkActive() {
   if (millis() > deactivateAt) {
@@ -205,7 +207,6 @@ void loop () {
   static White white;
   static int brightness = BRIGHTNESS;
   static int currentProgram = 0;
-  static int selection = 0;
 
   checkActive();
 
@@ -235,18 +236,18 @@ void loop () {
     activate();
     bool clockwise = e.type == EC11Event::StepCW;
     switch (selection) {
-      case 0: // program
-        currentProgram = (currentProgram + dir(clockwise) + numPrograms) % numPrograms;
-
-        sprintf(buffer, "currentProgram: %d", currentProgram);
-        Serial.println(buffer);
-
-        break;
-      case 1: // brightness
+      case 0: // brightness
         brightness = clamp(brightness + 10 * dir(clockwise), 0, 255);
         FastLED.setBrightness(  brightness );
 
         sprintf(buffer, "brightness: %d", brightness);
+        Serial.println(buffer);
+
+        break;
+      case 1: // program
+        currentProgram = (currentProgram + dir(clockwise) + numPrograms) % numPrograms;
+
+        sprintf(buffer, "currentProgram: %d", currentProgram);
         Serial.println(buffer);
 
         break;
