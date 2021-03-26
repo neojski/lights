@@ -39,12 +39,17 @@ int dir (bool clockwise) {
 struct Program {
   public:
     virtual void loop ();
-    virtual void knob (bool clockwise);
+    virtual void knob (int knob, bool clockwise);
+    virtual int knobs ();
 };
 
 struct White : public Program {
   private:
     int howManyOn;
+    int warmth; // 0 to 9
+
+    const int minWarmth = 0;
+    const int maxWarmth = 9;
 
   public:
     White() : howManyOn(NUM_LEDS) {}
@@ -52,7 +57,9 @@ struct White : public Program {
     virtual void loop () {
       for (int i = 0; i < NUM_LEDS; i++) {
         if (i < howManyOn) {
-          CHSV color = CHSV(26, 210, 180);
+          const CHSV warmWhite = CHSV(26, 210, 180);
+          const CHSV coldWhite = CHSV(0, 0, 180);
+          const CHSV color = blend(warmWhite, coldWhite, map(warmth, minWarmth, maxWarmth, 0, 255));
           setLed(i, color);
         } else {
           setLed(i, CRGB::Black);
@@ -60,8 +67,19 @@ struct White : public Program {
       }
     }
 
-    virtual void knob (bool clockwise) {
-      howManyOn = clamp(howManyOn + dir(clockwise), 0, NUM_LEDS);
+    virtual void knob (int knob, bool clockwise) {
+      switch (knob) {
+        case 0:
+          howManyOn = clamp(howManyOn + dir(clockwise), 0, NUM_LEDS);
+          break;
+        case 1:
+          warmth = clamp (warmth + dir(clockwise), minWarmth, maxWarmth);
+          break;
+      }
+    }
+
+    virtual int knobs() {
+      return 2;
     }
 };
 
@@ -93,11 +111,15 @@ struct Rainbow : public Program {
       prevMillis = currentMillis;
     }
 
-    virtual void knob (bool clockwise) {
+    virtual void knob (int knob, bool clockwise) {
       speed += dir(clockwise);
 
       sprintf(buffer, "rainbow: speed %d", speed);
       Serial.println(buffer);
+    }
+
+    virtual int knobs () {
+      return 1;
     }
 };
 
@@ -115,10 +137,14 @@ struct Hue : public Program {
       }
     }
 
-    virtual void knob (bool clockwise) {
+    virtual void knob (int knob, bool clockwise) {
       sprintf(buffer, "knob: %d, hue: %d", clockwise, hue);
       Serial.println(buffer);
       hue += 10 * dir(clockwise);
+    }
+
+    virtual int knobs () {
+      return 1;
     }
 };
 
@@ -223,7 +249,7 @@ void loop () {
   static Button button(d3);
   if (button.click()) {
     activate();
-    selection = (selection + 1) % 3;
+    selection = (selection + 1) % (2 + program->knobs());
 
     sprintf(buffer, "button press, selection: %d", selection);
     Serial.println(buffer);
@@ -252,7 +278,7 @@ void loop () {
 
         break;
       default: // subprogram
-        program->knob(clockwise);
+        program->knob(selection - 2, clockwise);
 
         sprintf(buffer, "program->knob, clockwise: %d", clockwise);
         Serial.println(buffer);
