@@ -1,13 +1,16 @@
 #include <FastLED.h>
+#include <ESP8266WiFi.h>
 #include "EC11.hpp"
 
 #define LED_PIN     2
 #define NUM_LEDS    46
+#define NUM_ROWS    7
 #define BRIGHTNESS  128
 #define LED_TYPE    WS2811
 #define COLOR_ORDER RGB
 #define UPDATES_PER_SECOND 100
 CRGB leds[NUM_LEDS];
+WiFiServer server(80);
 
 const int d1 = 5;
 const int d2 = 4;
@@ -45,16 +48,29 @@ struct Program {
 
 struct White : public Program {
   private:
-    int howManyOn;
+    int howManyRowsOn;
     int warmth; // 0 to 9
 
     const int minWarmth = 0;
     const int maxWarmth = 9;
 
   public:
-    White() : howManyOn(NUM_LEDS) {}
+    White() : howManyRowsOn(NUM_ROWS) {}
+    
+    int rowToCount (int rows) {
+      int count = 0;
+      for (int i = 0; i < rows; i++) {
+        if (i % 2 == 0) {
+          count += 7;
+        } else {
+          count += 6;
+        }
+      }
+      return count;
+    }
 
     virtual void loop () {
+      int howManyOn = rowToCount(howManyRowsOn);
       for (int i = 0; i < NUM_LEDS; i++) {
         if (i < howManyOn) {
           const CHSV warmWhite = CHSV(26, 210, 180);
@@ -67,10 +83,11 @@ struct White : public Program {
       }
     }
 
+
     virtual void knob (int knob, bool clockwise) {
       switch (knob) {
         case 0:
-          howManyOn = clamp(howManyOn + dir(clockwise), 0, NUM_LEDS);
+          howManyRowsOn = clamp(howManyRowsOn + dir(clockwise), 0, NUM_ROWS);
           break;
         case 1:
           warmth = clamp (warmth + dir(clockwise), minWarmth, maxWarmth);
@@ -182,7 +199,8 @@ const int pinB = d1;
 EC11 encoder;
 
 void setup() {
-  Serial.begin(9600); // open the serial port at 9600 bps:
+  Serial.begin(115200);
+  
   delay( 3000 ); // power-up safety delay
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalPixelString );
   FastLED.setBrightness(  BRIGHTNESS );
@@ -194,6 +212,9 @@ void setup() {
   // pinA & pinB need pull-ups
   pinMode(pinA, INPUT);
   pinMode(pinB, INPUT);
+
+  WiFi.begin("homeomorphism", "satisfy scandal helmet");
+  //WiFi.begin("xoranS20", "helloworld");
 }
 
 void pinDidChange() {
@@ -208,6 +229,25 @@ void selectionIndicator(int selection) {
     setLed(i, CRGB::Black);
   }
   setLed(NUM_LEDS - 1 - selection, CRGB::White);
+}
+
+void wifiIndicator() {
+  static bool prevConnected = false;
+  
+  bool connected = WiFi.status() == WL_CONNECTED;
+  if(!connected) {
+    if (prevConnected == true) {
+      Serial.print("WIFI disconnected");
+    }
+    setLed(NUM_LEDS - 1 - 6, CRGB::Red);
+  } else {
+    if (prevConnected == false) {
+      Serial.print("WIFI connected, IP address: ");
+      Serial.println(WiFi.localIP());
+      server.begin();
+    }
+  }
+  prevConnected = connected;
 }
 
 int selection = 0;
@@ -233,6 +273,7 @@ void loop () {
   static White white;
   static int brightness = BRIGHTNESS;
   static int currentProgram = 0;
+  static Button button(d3);
 
   checkActive();
 
@@ -246,8 +287,16 @@ void loop () {
   // but the controller was crashing for some reason
   pinDidChange();
 
-  static Button button(d3);
-  if (button.click()) {
+  char wifiInput = -1;
+  WiFiClient client = server.available();
+  if (client) {
+    Serial.printf("client\n");
+    wifiInput = client.read();
+    Serial.printf("input: %c", wifiInput);
+  }
+
+  int click = button.click() || wifiInput == 'c';
+  if (click) {
     activate();
     selection = (selection + 1) % (2 + program->knobs());
 
@@ -257,10 +306,18 @@ void loop () {
 
   program->loop();
 
+  int rotate = -1;
   EC11Event e;
   if (encoder.read(&e)) {
+    rotate = e.type == EC11Event::StepCW;
+  }
+  if (wifiInput == 'l' || wifiInput == 'r') {
+    rotate = wifiInput == 'r';
+  }
+
+  if (rotate == 0 || rotate == 1) {
+    bool clockwise = rotate == 1;
     activate();
-    bool clockwise = e.type == EC11Event::StepCW;
     switch (selection) {
       case 0: // brightness
         brightness = clamp(brightness + 10 * dir(clockwise), 0, 255);
@@ -288,6 +345,8 @@ void loop () {
   if (active) {
     selectionIndicator(selection);
   }
+
+  wifiIndicator();
 
   FastLED.show();
 }
