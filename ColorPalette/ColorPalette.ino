@@ -43,6 +43,7 @@ struct Program {
   public:
     virtual void loop ();
     virtual void knob (int knob, bool clockwise);
+    virtual void set (int knob, int value);
     virtual int knobs ();
 };
 
@@ -83,16 +84,28 @@ struct White : public Program {
       }
     }
 
-
-    virtual void knob (int knob, bool clockwise) {
+    virtual void set (int knob, int value) {
       switch (knob) {
         case 0:
-          howManyRowsOn = clamp(howManyRowsOn + dir(clockwise), 0, NUM_ROWS);
+          howManyRowsOn = clamp(value, 0, NUM_ROWS);
           break;
         case 1:
-          warmth = clamp (warmth + dir(clockwise), minWarmth, maxWarmth);
+          warmth = clamp (value, minWarmth, maxWarmth);
           break;
       }
+    }
+
+    virtual void knob (int knob, bool clockwise) {
+      int value;
+      switch (knob) {
+        case 0:
+          value = howManyRowsOn + dir(clockwise);
+          break;
+        case 1:
+          value = warmth + dir(clockwise);
+          break;
+      }
+      set (knob, value);
     }
 
     virtual int knobs() {
@@ -128,6 +141,10 @@ struct Rainbow : public Program {
       prevMillis = currentMillis;
     }
 
+    virtual void set (int knob, int value) {
+      speed = value;
+    }
+
     virtual void knob (int knob, bool clockwise) {
       speed += dir(clockwise);
 
@@ -152,6 +169,10 @@ struct Hue : public Program {
       for (int i = 0; i < NUM_LEDS; i++) {
         setLed(i, color);
       }
+    }
+
+    virtual void set (int knob, int value) {
+      hue = value;
     }
 
     virtual void knob (int knob, bool clockwise) {
@@ -267,33 +288,63 @@ void checkActive() {
   }
 }
 
+int brightness = BRIGHTNESS;
+void setBrightness (int value) {
+  brightness = clamp(value, 0, 255);
+  FastLED.setBrightness(brightness);
+  sprintf(buffer, "brightness: %d", brightness);
+  Serial.println(buffer);
+}
+
 void loop () {
   static Hue hue;
   static Rainbow rainbow;
   static White white;
-  static int brightness = BRIGHTNESS;
   static int currentProgram = 0;
   static Button button(d3);
-
-  checkActive();
 
   Program* programs[] = { &rainbow, &hue, &white };
   const int numPrograms = sizeof(programs) / sizeof(*programs);
   Program* program = programs[currentProgram];
+
+  checkActive();
+
+  char wifiInput = -1;
+  WiFiClient client = server.available();
+  if (client) {
+    Serial.printf("client\n");
+
+    String result = client.readStringUntil('\n');
+    Serial.printf("input lenght: %d\n", result.length());
+
+    // Mechanical button simulation:
+    // s c - click
+    // s l - left
+    // s r - right
+    // Absolute values setting:
+    // p b p n1 n2 n3 ... nk - set program p with brighness p and knob settings n1, n2, ..., nk
+
+    if (result[0] == 's') {
+      wifiInput = result[1];
+    } else if (result[0] == 'p') {
+      for (int i = 1; i < result.length(); i++) {
+        if (i == 1) {
+          setBrightness(result[i]);
+        } else if (i == 2) {
+          currentProgram = result[i] % numPrograms;
+          program = programs[currentProgram];
+        } else {
+          program->set(i - 3, result[i]);
+        }
+      }
+    }
+  }
 
   // TODO:
   // I was trying to call it like this:
   // attachInterrupt(digitalPinToInterrupt(pinB), pinDidChange, CHANGE);
   // but the controller was crashing for some reason
   pinDidChange();
-
-  char wifiInput = -1;
-  WiFiClient client = server.available();
-  if (client) {
-    Serial.printf("client\n");
-    wifiInput = client.read();
-    Serial.printf("input: %c", wifiInput);
-  }
 
   int click = button.click() || wifiInput == 'c';
   if (click) {
@@ -320,12 +371,7 @@ void loop () {
     activate();
     switch (selection) {
       case 0: // brightness
-        brightness = clamp(brightness + 10 * dir(clockwise), 0, 255);
-        FastLED.setBrightness(  brightness );
-
-        sprintf(buffer, "brightness: %d", brightness);
-        Serial.println(buffer);
-
+        setBrightness(brightness + 10 * dir(clockwise));
         break;
       case 1: // program
         currentProgram = (currentProgram + dir(clockwise) + numPrograms) % numPrograms;
